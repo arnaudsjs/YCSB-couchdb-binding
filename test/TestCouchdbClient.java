@@ -45,13 +45,22 @@ public class TestCouchdbClient {
 		int success = client.insert(DATABASE_NAME, keyDatabaseEntry, data);
 		// Assert insert
 		assertTrue(success == 0);
-		// Read operation
 		HashMap<String, ByteIterator> queryResult = new HashMap<String, ByteIterator>();
 		success = client.read(DATABASE_NAME, keyDatabaseEntry, null, queryResult);
-		// Assert read
 		assertTrue(success == 0);
 		assertTrue(queryResult.size() == 1);
 		assertEquals(queryResult.get(mapKey).toString(), mapValue);
+		// Update operation
+		String updateMapValue = "updatedMapValue";
+		HashMap<String, ByteIterator> valuesToUpdate = new HashMap<String, ByteIterator>();
+		valuesToUpdate.put(mapKey, new StringByteIterator(updateMapValue));
+		success = client.update(DATABASE_NAME, keyDatabaseEntry, valuesToUpdate);
+		// Assert update
+		assertTrue(success == 0);
+		queryResult = new HashMap<String, ByteIterator>();
+		client.read(DATABASE_NAME, keyDatabaseEntry, null, queryResult);
+		assertTrue(queryResult.size() == 1);
+		assertEquals(queryResult.get(mapKey).toString(), updateMapValue);
 		// delete operation
 		success = client.delete(DATABASE_NAME, keyDatabaseEntry);
 		// Assert deletion
