@@ -17,11 +17,11 @@ import org.junit.Test;
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.StringByteIterator;
 
-import couchdbBinding.java.couchdbClient;
+import couchdbBinding.java.CouchdbClient;
 
 public class TestCouchdbClient {
 
-	private static couchdbClient client;
+	private static CouchdbClient client;
 	private static final String DATABASE_NAME = "testdatabase";
 	
 	@BeforeClass
@@ -29,7 +29,7 @@ public class TestCouchdbClient {
 		HttpClient httpClient = new StdHttpClient.Builder().url("http://127.0.0.1:2222").build();
 		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
 		CouchDbConnector connector = dbInstance.createConnector(DATABASE_NAME, true);
-		client = new couchdbClient(connector);
+		client = new CouchdbClient(connector);
 	}
 	
 	@Test

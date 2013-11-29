@@ -35,7 +35,7 @@ limitations under the License.
 Administrative Contact: dnet-project-office@cs.kuleuven.be
 Technical Contact: arnaud.schoonjans@student.kuleuven.be
 */
-public class couchdbClient extends DB{
+public class CouchdbClient extends DB{
 	
 	/*
 	 * TODO: Idle connection automatically closed
@@ -43,26 +43,35 @@ public class couchdbClient extends DB{
 	 */
 	
 	private static final String DEFAULT_DATABASE_NAME = "usertable";
+	private static final String DEFAULT_COUCHDB_PORT_NUMBER = "5984";
 	private static final int OK = 0;
 	private static final int ERROR = -1;
 	
 	private CouchDbConnector dbConnector;
 	
-	public couchdbClient(){
+	public CouchdbClient(){
 		this.dbConnector = null;
 	}
 
 	// Constructor for testing purposes
-	public couchdbClient(CouchDbConnector connector){
+	public CouchdbClient(CouchDbConnector connector){
 		if(connector == null)
 			throw new IllegalArgumentException("connector is null");
 		this.dbConnector = connector;
 	}
 	
+	private String getUrlForHost() throws DBException{
+		String hosts = getProperties().getProperty("hosts");
+		if(hosts.contains(","))
+			throw new DBException("No more than one host allowed");
+		if(!hosts.contains(":"))
+			hosts += (":" + DEFAULT_COUCHDB_PORT_NUMBER);
+		return "http://" + hosts;
+	}
+	
 	@Override
 	public void init() throws DBException{
-		String hosts = getProperties().getProperty("hosts");
-		String url = "http://" + hosts;
+		String url = getUrlForHost();
 		HttpClient httpClient;
 		try {
 			httpClient = new StdHttpClient.Builder().url(url).build();
