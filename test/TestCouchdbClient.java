@@ -4,13 +4,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
-import org.ektorp.CouchDbConnector;
-import org.ektorp.CouchDbInstance;
-import org.ektorp.http.HttpClient;
-import org.ektorp.http.StdHttpClient;
-import org.ektorp.impl.StdCouchDbInstance;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -26,10 +24,10 @@ public class TestCouchdbClient {
 	
 	@BeforeClass
 	public static void initializeDbConnector() throws MalformedURLException{
-		HttpClient httpClient = new StdHttpClient.Builder().url("http://127.0.0.1:2222").build();
-		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		CouchDbConnector connector = dbInstance.createConnector(DATABASE_NAME, true);
-		client = new CouchdbClient(connector);
+		List<URL> urls = new ArrayList<URL>();
+		urls.add(new URL("http", "127.0.0.1", 2222, ""));
+		urls.add(new URL("http", "127.0.0.1", 3333, ""));
+		client = new CouchdbClient(urls);
 	}
 	
 	@Test

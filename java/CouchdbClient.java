@@ -1,40 +1,39 @@
 package couchdbBinding.java;
 
 import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 
 import org.ektorp.CouchDbConnector;
-import org.ektorp.CouchDbInstance;
 import org.ektorp.DocumentNotFoundException;
 import org.ektorp.UpdateConflictException;
-import org.ektorp.http.HttpClient;
-import org.ektorp.http.StdHttpClient;
-import org.ektorp.impl.StdCouchDbInstance;
 
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.DB;
 import com.yahoo.ycsb.DBException;
 
 /*
-Copyright 2013 KU Leuven Research and Development - iMinds - Distrinet
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-Administrative Contact: dnet-project-office@cs.kuleuven.be
-Technical Contact: arnaud.schoonjans@student.kuleuven.be
-*/
+ * Copyright 2013 KU Leuven Research and Development - iMinds - Distrinet
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * Administrative Contact: dnet-project-office@cs.kuleuven.be
+ * Technical Contact: arnaud.schoonjans@student.kuleuven.be
+ */
 public class CouchdbClient extends DB{
 	
 	/*
@@ -43,7 +42,8 @@ public class CouchdbClient extends DB{
 	 */
 	
 	private static final String DEFAULT_DATABASE_NAME = "usertable";
-	private static final String DEFAULT_COUCHDB_PORT_NUMBER = "5984";
+	private static final int DEFAULT_COUCHDB_PORT_NUMBER = 5984;
+	private static final String PROTOCOL = "http";
 	private static final int OK = 0;
 	private static final int ERROR = -1;
 	
@@ -54,33 +54,44 @@ public class CouchdbClient extends DB{
 	}
 
 	// Constructor for testing purposes
-	public CouchdbClient(CouchDbConnector connector){
-		if(connector == null)
-			throw new IllegalArgumentException("connector is null");
-		this.dbConnector = connector;
+	public CouchdbClient(List<URL> urls){
+		if(urls == null)
+			throw new IllegalArgumentException("urls is null");
+		this.dbConnector = new LoadBalancedConnector(urls, DEFAULT_DATABASE_NAME);
 	}
 	
-	private String getUrlForHost() throws DBException{
+	private List<URL> getUrlsForHosts() throws DBException{
+		List<URL> result = new ArrayList<URL>();
 		String hosts = getProperties().getProperty("hosts");
-		if(hosts.contains(","))
-			throw new DBException("No more than one host allowed");
-		if(!hosts.contains(":"))
-			hosts += (":" + DEFAULT_COUCHDB_PORT_NUMBER);
-		return "http://" + hosts;
+		String[] differentHosts = hosts.split(",");
+		for(String host: differentHosts){
+			URL url = this.getUrlForHost(host);
+			result.add(url);
+		}
+		return result;
+	}
+	
+	private URL getUrlForHost(String host) throws DBException{
+		String[] hostAndPort = host.split(":");
+		try{
+			if(hostAndPort.length == 1){
+				return new URL(PROTOCOL, host, DEFAULT_COUCHDB_PORT_NUMBER, "");
+			} 
+			else{
+				int portNumber = Integer.parseInt(hostAndPort[1]);
+				return new URL(PROTOCOL, hostAndPort[0], portNumber, "");
+			}
+		} catch(MalformedURLException exc){
+			throw new DBException("Invalid host specified");
+		} catch(NumberFormatException exc){
+			throw new DBException("Invalid port number specified");
+		}
 	}
 	
 	@Override
 	public void init() throws DBException{
-		String url = getUrlForHost();
-		HttpClient httpClient;
-		try {
-			httpClient = new StdHttpClient.Builder().url(url).build();
-		} catch (MalformedURLException e) {
-			throw new DBException("Illegal host specified");
-		}
-		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		// 2nd paramter true => Create database if not exists
-		this.dbConnector = dbInstance.createConnector(DEFAULT_DATABASE_NAME, true);
+		List<URL> urls = getUrlsForHosts();
+		this.dbConnector = new LoadBalancedConnector(urls, DEFAULT_DATABASE_NAME);
 	}
 	
 	@Override
@@ -88,7 +99,7 @@ public class CouchdbClient extends DB{
 		// Do nothing
 	}
 	
-	private StringToStringMap executeReadOperation(String key){
+	public StringToStringMap executeReadOperation(String key){
 		try{
 			return this.dbConnector.get(StringToStringMap.class, key);
 		} catch(DocumentNotFoundException exc){
@@ -96,7 +107,7 @@ public class CouchdbClient extends DB{
 		}
 	}
 	
-	private int executeWriteOperation(String key, StringToStringMap dataToWrite){
+	public int executeWriteOperation(String key, StringToStringMap dataToWrite){
 		try{
 			dataToWrite.put("_id", key);
 			this.dbConnector.create(dataToWrite);
@@ -106,7 +117,7 @@ public class CouchdbClient extends DB{
 		return OK;
 	}
 	
-	private int executeDeleteOperation(StringToStringMap dataToDelete){
+	public int executeDeleteOperation(StringToStringMap dataToDelete){
 		try{
 			this.dbConnector.delete(dataToDelete);
 		} catch(UpdateConflictException exc){
@@ -115,7 +126,7 @@ public class CouchdbClient extends DB{
 		return OK;
 	}
 	
-	private int executeUpdateOperation(StringToStringMap dataToUpdate){
+	public int executeUpdateOperation(StringToStringMap dataToUpdate){
 		try{
 			this.dbConnector.update(dataToUpdate);
 		} catch(UpdateConflictException exc){
@@ -144,6 +155,7 @@ public class CouchdbClient extends DB{
 		}
 	}
 	
+	// Table variable is not used => already contained in database connector
 	@Override
 	public int read(String table, String key, Set<String> fields,
 			HashMap<String, ByteIterator> result) {
@@ -157,7 +169,7 @@ public class CouchdbClient extends DB{
 		}
 		return OK;
 	}
-
+	
 	@Override
 	public int scan(String table, String startkey, int recordcount,
 			Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
@@ -165,6 +177,7 @@ public class CouchdbClient extends DB{
 		throw new UnsupportedOperationException("Not implemented");
 	}
 
+	// Table variable is not used => already contained in database connector
 	@Override
 	public int update(String table, String key,
 			HashMap<String, ByteIterator> values) {
@@ -184,6 +197,7 @@ public class CouchdbClient extends DB{
 		return toUpdate;
 	}
 	
+	// Table variable is not used => already contained in database connector
 	@Override
 	public int insert(String table, String key,
 			HashMap<String, ByteIterator> values) {
@@ -191,6 +205,7 @@ public class CouchdbClient extends DB{
 		return this.executeWriteOperation(key, dataToInsert);
 	}
 
+	// Table variable is not used => already contained in database connector
 	@Override
 	public int delete(String table, String key) {
 		StringToStringMap toDelete = this.executeReadOperation(key);
@@ -198,5 +213,5 @@ public class CouchdbClient extends DB{
 			return ERROR;
 		return this.executeDeleteOperation(toDelete);
 	}
-
+	
 }
