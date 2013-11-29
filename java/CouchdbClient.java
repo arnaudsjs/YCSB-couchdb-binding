@@ -99,7 +99,7 @@ public class CouchdbClient extends DB{
 		// Do nothing
 	}
 	
-	public StringToStringMap executeReadOperation(String key){
+	private StringToStringMap executeReadOperation(String key){
 		try{
 			return this.dbConnector.get(StringToStringMap.class, key);
 		} catch(DocumentNotFoundException exc){
@@ -107,7 +107,7 @@ public class CouchdbClient extends DB{
 		}
 	}
 	
-	public int executeWriteOperation(String key, StringToStringMap dataToWrite){
+	private int executeWriteOperation(String key, StringToStringMap dataToWrite){
 		try{
 			dataToWrite.put("_id", key);
 			this.dbConnector.create(dataToWrite);
@@ -117,7 +117,7 @@ public class CouchdbClient extends DB{
 		return OK;
 	}
 	
-	public int executeDeleteOperation(StringToStringMap dataToDelete){
+	private int executeDeleteOperation(StringToStringMap dataToDelete){
 		try{
 			this.dbConnector.delete(dataToDelete);
 		} catch(UpdateConflictException exc){
@@ -126,7 +126,7 @@ public class CouchdbClient extends DB{
 		return OK;
 	}
 	
-	public int executeUpdateOperation(StringToStringMap dataToUpdate){
+	private int executeUpdateOperation(StringToStringMap dataToUpdate){
 		try{
 			this.dbConnector.update(dataToUpdate);
 		} catch(UpdateConflictException exc){
