@@ -242,7 +242,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 
 	@Override
 	public ViewResult queryView(ViewQuery query) {
-		throw new UnsupportedOperationException("not implemented");
+		return this.getConnector().queryView(query);
 	}
 
 	@Override

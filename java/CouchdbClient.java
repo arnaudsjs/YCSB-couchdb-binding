@@ -11,10 +11,17 @@ import java.util.Vector;
 import org.ektorp.CouchDbConnector;
 import org.ektorp.DocumentNotFoundException;
 import org.ektorp.UpdateConflictException;
+import org.ektorp.ViewQuery;
+import org.ektorp.ViewResult;
+import org.ektorp.ViewResult.Row;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.DB;
 import com.yahoo.ycsb.DBException;
+import com.yahoo.ycsb.StringByteIterator;
 
 /*
  * Copyright 2013 KU Leuven Research and Development - iMinds - Distrinet
@@ -173,10 +180,47 @@ public class CouchdbClient extends DB{
 	@Override
 	public int scan(String table, String startkey, int recordcount,
 			Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
-		//TODO: implement
-		throw new UnsupportedOperationException("Not implemented");
+		ViewResult viewResult = this.executeView(startkey, recordcount);
+		for(Row row: viewResult.getRows()){
+			JSONObject jsonObj = this.parseAsJsonObject(row.getDoc());
+			if(jsonObj == null)
+				return ERROR;
+			if(fields == null)
+				result.add(this.getFieldsFromJsonObj(jsonObj.keySet(), jsonObj)); 
+			else
+				result.add(this.getFieldsFromJsonObj(fields, jsonObj));
+		}
+		return OK;
 	}
-
+	
+	private ViewResult executeView(String startKey, int amountOfRecords){
+		ViewQuery query = new ViewQuery()
+	      .viewName("_all_docs")
+	      .startKey(startKey)
+	      .limit(amountOfRecords)
+	      .includeDocs(true);
+		return this.dbConnector.queryView(query);
+	}
+	
+	private JSONObject parseAsJsonObject(String stringToParse){
+		JSONParser parser = new JSONParser();
+		try {
+			return (JSONObject) parser.parse(stringToParse);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	private HashMap<String, ByteIterator> getFieldsFromJsonObj(Set<String> fields, JSONObject jsonObj){
+		HashMap<String, ByteIterator> result = new HashMap<String, ByteIterator>();
+		for(String key: fields){
+			String value = jsonObj.get(key).toString();
+			result.put(key, new StringByteIterator(value));
+		}
+		return result;
+	}
+	
 	// Table variable is not used => already contained in database connector
 	@Override
 	public int update(String table, String key,
