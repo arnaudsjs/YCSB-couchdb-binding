@@ -12,6 +12,7 @@ import org.ektorp.CouchDbConnector;
 import org.ektorp.CouchDbInstance;
 import org.ektorp.DbInfo;
 import org.ektorp.DesignDocInfo;
+import org.ektorp.DocumentNotFoundException;
 import org.ektorp.DocumentOperationResult;
 import org.ektorp.Options;
 import org.ektorp.Page;
@@ -21,6 +22,7 @@ import org.ektorp.ReplicationStatus;
 import org.ektorp.Revision;
 import org.ektorp.StreamingChangesResult;
 import org.ektorp.StreamingViewResult;
+import org.ektorp.UpdateConflictException;
 import org.ektorp.UpdateHandlerRequest;
 import org.ektorp.ViewQuery;
 import org.ektorp.ViewResult;
@@ -94,27 +96,71 @@ public class LoadBalancedConnector implements CouchDbConnector{
 
 	@Override
 	public void create(String id, Object o) {
-		this.getConnector().create(id, o);
+		boolean failed = true;
+		for(int i=0; i<this.connectors.size() && failed; i++){
+			try{
+				this.getConnector().create(id, o);
+				failed = false;
+			} catch(UpdateConflictException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		if(failed)
+			throw new NoNodeReacheableException();
 	}
 
 	@Override
 	public void create(Object o) {
-		this.getConnector().create(o);
+		boolean failed = true;
+		for(int i=0; i<this.connectors.size() && failed; i++){
+			try{
+				this.getConnector().create(o);
+				failed = false;
+			} catch(UpdateConflictException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		if(failed)
+			throw new NoNodeReacheableException();
 	}
 
 	@Override
 	public void update(Object o) {
-		this.getConnector().update(o);
+		boolean failed = true;
+		for(int i=0; i<this.connectors.size() && failed; i++){
+			try{
+				this.getConnector().update(o);
+				failed = false;
+			} catch(UpdateConflictException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		if(failed)
+			throw new NoNodeReacheableException();
 	}
 
 	@Override
 	public String delete(Object o) {
-		return this.getConnector().delete(o);
+		for(int i=0; i<this.connectors.size(); i++){
+			try{
+				return this.getConnector().delete(o);
+			} catch(UpdateConflictException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		throw new NoNodeReacheableException();
 	}
 
 	@Override
 	public String delete(String id, String revision) {
-		return this.getConnector().delete(id, revision);
+		for(int i=0; i<this.connectors.size(); i++){
+			try{
+				return this.getConnector().delete(id, revision);
+			} catch(UpdateConflictException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		throw new NoNodeReacheableException();
 	}
 
 	@Override
@@ -135,12 +181,26 @@ public class LoadBalancedConnector implements CouchDbConnector{
 
 	@Override
 	public <T> T get(Class<T> c, String id) {
-		return this.getConnector().get(c, id);
+		for(int i=0; i<this.connectors.size(); i++){
+			try{
+				return this.getConnector().get(c, id);
+			} catch(DocumentNotFoundException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		throw new NoNodeReacheableException();
 	}
 
 	@Override
 	public <T> T get(Class<T> c, String id, Options options) {
-		return this.getConnector().get(c, id, options);
+		for(int i=0; i<this.connectors.size(); i++){
+			try{
+				return this.getConnector().get(c, id, options);
+			} catch(DocumentNotFoundException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		throw new NoNodeReacheableException();
 	}
 
 	@Override
@@ -242,7 +302,12 @@ public class LoadBalancedConnector implements CouchDbConnector{
 
 	@Override
 	public ViewResult queryView(ViewQuery query) {
-		return this.getConnector().queryView(query);
+		for(int i=0; i<this.connectors.size(); i++){
+			try{
+				return this.getConnector().queryView(query);
+			} catch(Exception exc){exc.printStackTrace();}
+		}
+		throw new NoNodeReacheableException();
 	}
 
 	@Override
@@ -420,7 +485,16 @@ public class LoadBalancedConnector implements CouchDbConnector{
 	@Override
 	public void update(String id, InputStream document, long length,
 			Options options) {
-		this.getConnector().update(id, document, length, options); 
+		boolean failed = true;
+		for(int i=0; i<this.connectors.size() && failed; i++){
+			try{
+				this.getConnector().update(id, document, length, options); 
+				failed = false;
+			} catch(UpdateConflictException exc){
+				throw exc;
+			} catch(Exception exc){}
+		}
+		if(failed)
+			throw new NoNodeReacheableException();
 	}
-
 }

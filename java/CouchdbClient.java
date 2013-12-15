@@ -43,18 +43,17 @@ import com.yahoo.ycsb.StringByteIterator;
  */
 public class CouchdbClient extends DB{
 	
-	/*
-	 * TODO: Idle connection automatically closed
-	 * check whether there is a manual was to close connections
-	 */
-	
+	// Default configuration
 	private static final String DEFAULT_DATABASE_NAME = "usertable";
 	private static final int DEFAULT_COUCHDB_PORT_NUMBER = 5984;
 	private static final String PROTOCOL = "http";
-	private static final int OK = 0;
-	private static final int ERROR = -1;
-	
+	// Database connector
 	private CouchDbConnector dbConnector;
+	// Return codes
+	private static final int OK = 0;
+	private static final int UPDATE_CONFLICT = -2;
+	private static final int DOC_NOT_FOUND = -3;
+	private static final int JSON_PARSING_FAULT = -4;
 	
 	public CouchdbClient(){
 		this.dbConnector = null;
@@ -119,7 +118,7 @@ public class CouchdbClient extends DB{
 			dataToWrite.put("_id", key);
 			this.dbConnector.create(dataToWrite);
 		} catch(UpdateConflictException exc){
-			return ERROR;
+			return UPDATE_CONFLICT;
 		}
 		return OK;
 	}
@@ -128,7 +127,7 @@ public class CouchdbClient extends DB{
 		try{
 			this.dbConnector.delete(dataToDelete);
 		} catch(UpdateConflictException exc){
-			return ERROR;
+			return UPDATE_CONFLICT;
 		}
 		return OK;
 	}
@@ -137,7 +136,7 @@ public class CouchdbClient extends DB{
 		try{
 			this.dbConnector.update(dataToUpdate);
 		} catch(UpdateConflictException exc){
-			return ERROR;
+			return UPDATE_CONFLICT;
 		}
 		return OK;
 	}
@@ -149,16 +148,17 @@ public class CouchdbClient extends DB{
 			ByteIterator value = inputMap.getAsByteIt(field);
 			result.put(field, value);
 		}
+		ByteIterator _id = inputMap.getAsByteIt("_id");
+		ByteIterator _rev = inputMap.getAsByteIt("_rev");
+		result.put("_id",  _id);
+		result.put("_rev", _rev);
 	}
 	
 	private void copyAllFieldsToResultMap(StringToStringMap inputMap,
 			HashMap<String, ByteIterator> result){
 		for(String field: inputMap.keySet()){
-			// Ommit the _id and _rev fields (metadata for couchdb)
-			if(!field.equals("_id") && !field.equals("_rev")){
-				ByteIterator value = inputMap.getAsByteIt(field);
-				result.put(field, value);				
-			}
+			ByteIterator value = inputMap.getAsByteIt(field);
+			result.put(field, value);
 		}
 	}
 	
@@ -168,7 +168,7 @@ public class CouchdbClient extends DB{
 			HashMap<String, ByteIterator> result) {
 		StringToStringMap queryResult = this.executeReadOperation(key);
 		if(queryResult == null)
-			return ERROR;
+			return DOC_NOT_FOUND;
 		if(fields == null){
 			this.copyAllFieldsToResultMap(queryResult, result);
 		}else{
@@ -184,11 +184,14 @@ public class CouchdbClient extends DB{
 		for(Row row: viewResult.getRows()){
 			JSONObject jsonObj = this.parseAsJsonObject(row.getDoc());
 			if(jsonObj == null)
-				return ERROR;
-			if(fields == null)
-				result.add(this.getFieldsFromJsonObj(jsonObj.keySet(), jsonObj)); 
-			else
+				return JSON_PARSING_FAULT;
+			if(fields == null){
+				@SuppressWarnings("unchecked")
+				Set<String> requestedFields = jsonObj.keySet();
+				result.add(this.getFieldsFromJsonObj(requestedFields, jsonObj));
+			}else{
 				result.add(this.getFieldsFromJsonObj(fields, jsonObj));
+			}
 		}
 		return OK;
 	}
@@ -227,7 +230,7 @@ public class CouchdbClient extends DB{
 			HashMap<String, ByteIterator> values) {
 		StringToStringMap queryResult = this.executeReadOperation(key);
 		if(queryResult == null)
-			return ERROR;
+			return DOC_NOT_FOUND;
 		StringToStringMap updatedMap = this.updateFields(queryResult, values);
 		return this.executeUpdateOperation(updatedMap);
 	}
@@ -254,7 +257,7 @@ public class CouchdbClient extends DB{
 	public int delete(String table, String key) {
 		StringToStringMap toDelete = this.executeReadOperation(key);
 		if(toDelete == null)
-			return ERROR;
+			return DOC_NOT_FOUND;
 		return this.executeDeleteOperation(toDelete);
 	}
 	
