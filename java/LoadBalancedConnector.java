@@ -305,7 +305,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 		for(int i=0; i<this.connectors.size(); i++){
 			try{
 				return this.getConnector().queryView(query);
-			} catch(Exception exc){exc.printStackTrace();}
+			} catch(Exception exc){}
 		}
 		throw new NoNodeReacheableException();
 	}
