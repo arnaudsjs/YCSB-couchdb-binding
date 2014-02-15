@@ -23,6 +23,8 @@ import com.yahoo.ycsb.DB;
 import com.yahoo.ycsb.DBException;
 import com.yahoo.ycsb.StringByteIterator;
 
+import consistencyTests.util.StringToStringMap;
+
 /*
  * Copyright 2013 KU Leuven Research and Development - iMinds - Distrinet
  * 
