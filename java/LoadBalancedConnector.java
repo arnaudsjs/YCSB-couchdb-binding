@@ -94,12 +94,16 @@ public class LoadBalancedConnector implements CouchDbConnector{
 		return result;
 	}
 
+	private CouchDbConnector getConnectorForMutationOperations(){
+		return this.connectors.get(0);
+	}
+	
 	@Override
 	public void create(String id, Object o) {
 		boolean failed = true;
 		for(int i=0; i<this.connectors.size() && failed; i++){
 			try{
-				this.getConnector().create(id, o);
+				this.getConnectorForMutationOperations().create(id, o);
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
@@ -114,7 +118,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 		boolean failed = true;
 		for(int i=0; i<this.connectors.size() && failed; i++){
 			try{
-				this.getConnector().create(o);
+				this.getConnectorForMutationOperations().create(o);
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
@@ -129,7 +133,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 		boolean failed = true;
 		for(int i=0; i<this.connectors.size() && failed; i++){
 			try{
-				this.getConnector().update(o);
+				this.getConnectorForMutationOperations().update(o);
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
@@ -143,7 +147,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 	public String delete(Object o) {
 		for(int i=0; i<this.connectors.size(); i++){
 			try{
-				return this.getConnector().delete(o);
+				return this.getConnectorForMutationOperations().delete(o);
 			} catch(UpdateConflictException exc){
 				throw exc;
 			} catch(Exception exc){}
@@ -155,7 +159,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 	public String delete(String id, String revision) {
 		for(int i=0; i<this.connectors.size(); i++){
 			try{
-				return this.getConnector().delete(id, revision);
+				return this.getConnectorForMutationOperations().delete(id, revision);
 			} catch(UpdateConflictException exc){
 				throw exc;
 			} catch(Exception exc){}
@@ -304,7 +308,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 	public ViewResult queryView(ViewQuery query) {
 		for(int i=0; i<this.connectors.size(); i++){
 			try{
-				return this.getConnector().queryView(query);
+				return this.getConnectorForMutationOperations().queryView(query);
 			} catch(Exception exc){}
 		}
 		throw new NoNodeReacheableException();
@@ -488,7 +492,7 @@ public class LoadBalancedConnector implements CouchDbConnector{
 		boolean failed = true;
 		for(int i=0; i<this.connectors.size() && failed; i++){
 			try{
-				this.getConnector().update(id, document, length, options); 
+				this.getConnectorForMutationOperations().update(id, document, length, options); 
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
