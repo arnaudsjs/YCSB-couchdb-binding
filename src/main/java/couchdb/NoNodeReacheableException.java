@@ -1,4 +1,4 @@
-package couchdbBinding.java;
+package couchdb;
 
 public class NoNodeReacheableException extends RuntimeException {
 

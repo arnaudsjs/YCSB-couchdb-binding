@@ -1,4 +1,4 @@
-package couchdbBinding.test;
+package generalTest;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -15,7 +15,7 @@ import org.junit.Test;
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.StringByteIterator;
 
-import couchdbBinding.java.CouchdbClient;
+import couchdb.CouchdbClient;
 
 public class TestCouchdbClient {
 
