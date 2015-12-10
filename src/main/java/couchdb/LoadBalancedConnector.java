@@ -63,20 +63,28 @@ public class LoadBalancedConnector implements CouchDbConnector{
 	private final List<CouchDbConnector> connectors;
 	private int nextConnector;
 	
-	public LoadBalancedConnector(List<URL> urlsOfNodesInCluster, String databaseName){
+	public LoadBalancedConnector(List<URL> urlsOfNodesInCluster, String databaseName, String username, String password){
 		if(urlsOfNodesInCluster == null)
 			throw new IllegalArgumentException("urlsOfNodesInClusterIsNull");
 		if(urlsOfNodesInCluster.isEmpty())
 			throw new IllegalArgumentException("At least one node required");
-		this.connectors = this.createConnectors(urlsOfNodesInCluster, databaseName);
+		this.connectors = this.createConnectors(urlsOfNodesInCluster, databaseName, username, password);
 		this.nextConnector = 0;
 	}
 	
-	private List<CouchDbConnector> createConnectors(List<URL> urlsForConnectors, String databaseName){
+	private List<CouchDbConnector> createConnectors(List<URL> urlsForConnectors, String databaseName, String username, String password){
 		List<CouchDbConnector> result = new ArrayList<CouchDbConnector>();
 		for(URL url : urlsForConnectors){
-			HttpClient httpClient = new StdHttpClient.Builder().url(url).build();
-			CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
+       StdHttpClient.Builder httpClient = new StdHttpClient.Builder()
+        .url(url);
+      if (username != null) {
+        httpClient.username(username);
+      }
+      if (password != null) {
+        httpClient.password(password);
+      }
+      httpClient.socketTimeout(100000);
+			CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient.build());
 			// 2nd paramter true => Create database if not exists
 			CouchDbConnector dbConnector = dbInstance.createConnector(databaseName, true);
 			result.add(dbConnector);
@@ -107,7 +115,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		if(failed)
 			throw new NoNodeReacheableException();
@@ -122,7 +132,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		if(failed)
 			throw new NoNodeReacheableException();
@@ -137,7 +149,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		if(failed)
 			throw new NoNodeReacheableException();
@@ -150,7 +164,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				return this.getConnectorForMutationOperations().delete(o);
 			} catch(UpdateConflictException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		throw new NoNodeReacheableException();
 	}
@@ -162,7 +178,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				return this.getConnectorForMutationOperations().delete(id, revision);
 			} catch(UpdateConflictException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		throw new NoNodeReacheableException();
 	}
@@ -190,7 +208,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				return this.getConnector().get(c, id);
 			} catch(DocumentNotFoundException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		throw new NoNodeReacheableException();
 	}
@@ -202,7 +222,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				return this.getConnector().get(c, id, options);
 			} catch(DocumentNotFoundException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		throw new NoNodeReacheableException();
 	}
@@ -309,7 +331,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 		for(int i=0; i<this.connectors.size(); i++){
 			try{
 				return this.getConnector().queryView(query);
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		throw new NoNodeReacheableException();
 	}
@@ -496,7 +520,9 @@ public class LoadBalancedConnector implements CouchDbConnector{
 				failed = false;
 			} catch(UpdateConflictException exc){
 				throw exc;
-			} catch(Exception exc){}
+			} catch(Exception exc){
+        exc.printStackTrace();
+      }
 		}
 		if(failed)
 			throw new NoNodeReacheableException();
