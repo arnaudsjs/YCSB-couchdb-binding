@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 
+import com.yahoo.ycsb.*;
 import org.ektorp.CouchDbConnector;
 import org.ektorp.DocumentNotFoundException;
 import org.ektorp.UpdateConflictException;
@@ -17,11 +18,6 @@ import org.ektorp.ViewResult.Row;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-
-import com.yahoo.ycsb.ByteIterator;
-import com.yahoo.ycsb.DB;
-import com.yahoo.ycsb.DBException;
-import com.yahoo.ycsb.StringByteIterator;
 
 import couchdb.StringToStringMap;
 
@@ -51,12 +47,7 @@ public class CouchdbClient extends DB{
 	private static final String PROTOCOL = "http";
 	// Database connector
 	private CouchDbConnector dbConnector;
-	// Return codes
-	private static final int OK = 0;
-	private static final int UPDATE_CONFLICT = -2;
-	private static final int DOC_NOT_FOUND = -3;
-	private static final int JSON_PARSING_FAULT = -4;
-	
+
 	public CouchdbClient(){
 		this.dbConnector = null;
 	}
@@ -65,7 +56,7 @@ public class CouchdbClient extends DB{
 	public CouchdbClient(List<URL> urls){
 		if(urls == null)
 			throw new IllegalArgumentException("urls is null");
-		this.dbConnector = new LoadBalancedConnector(urls, DEFAULT_DATABASE_NAME);
+		this.dbConnector = new LoadBalancedConnector(urls, DEFAULT_DATABASE_NAME, null, null);
 	}
 	
 	private List<URL> getUrlsForHosts() throws DBException{
@@ -99,7 +90,15 @@ public class CouchdbClient extends DB{
 	@Override
 	public void init() throws DBException{
 		List<URL> urls = getUrlsForHosts();
-		this.dbConnector = new LoadBalancedConnector(urls, DEFAULT_DATABASE_NAME);
+    String username = null;
+    String password = null;
+    if (getProperties().getProperty("username") != null && getProperties().getProperty("username").length() > 0) {
+      username = getProperties().getProperty("username");
+    }
+    if (getProperties().getProperty("password") != null && getProperties().getProperty("password").length() > 0 ) {
+      password = getProperties().getProperty("password");
+    }
+		this.dbConnector = new LoadBalancedConnector(urls, DEFAULT_DATABASE_NAME, username, password);
 	}
 	
 	@Override
@@ -115,32 +114,32 @@ public class CouchdbClient extends DB{
 		}
 	}
 	
-	private int executeWriteOperation(String key, StringToStringMap dataToWrite){
+	private Status executeWriteOperation(String key, StringToStringMap dataToWrite){
 		try{
 			dataToWrite.put("_id", key);
 			this.dbConnector.create(dataToWrite);
 		} catch(UpdateConflictException exc){
-			return UPDATE_CONFLICT;
+			return new Status("Conflict", "Conflict while updating record");
 		}
-		return OK;
+		return Status.OK;
 	}
 	
-	private int executeDeleteOperation(StringToStringMap dataToDelete){
+	private Status executeDeleteOperation(StringToStringMap dataToDelete){
 		try{
 			this.dbConnector.delete(dataToDelete);
 		} catch(UpdateConflictException exc){
-			return UPDATE_CONFLICT;
+			return new Status("Conflict", "Conflict while updating record");
 		}
-		return OK;
+		return Status.OK;
 	}
 	
-	private int executeUpdateOperation(StringToStringMap dataToUpdate){
+	private Status executeUpdateOperation(StringToStringMap dataToUpdate){
 		try{
 			this.dbConnector.update(dataToUpdate);
 		} catch(UpdateConflictException exc){
-			return UPDATE_CONFLICT;
+			return new Status("Conflict", "Conflict while updating record");
 		}
-		return OK;
+		return Status.OK;
 	}
 	
 	private void copyRequestedFieldsToResultMap(Set<String> fields,
@@ -166,27 +165,27 @@ public class CouchdbClient extends DB{
 	
 	// Table variable is not used => already contained in database connector
 	@Override
-	public int read(String table, String key, Set<String> fields,
+	public Status read(String table, String key, Set<String> fields,
 			HashMap<String, ByteIterator> result) {
 		StringToStringMap queryResult = this.executeReadOperation(key);
 		if(queryResult == null)
-			return DOC_NOT_FOUND;
+			return Status.NOT_FOUND;
 		if(fields == null){
 			this.copyAllFieldsToResultMap(queryResult, result);
 		}else{
 			this.copyRequestedFieldsToResultMap(fields, queryResult, result);
 		}
-		return OK;
+		return Status.OK;
 	}
 	
 	@Override
-	public int scan(String table, String startkey, int recordcount,
+	public Status scan(String table, String startkey, int recordcount,
 			Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
 		ViewResult viewResult = this.executeView(startkey, recordcount);
 		for(Row row: viewResult.getRows()){
 			JSONObject jsonObj = this.parseAsJsonObject(row.getDoc());
 			if(jsonObj == null)
-				return JSON_PARSING_FAULT;
+				return new Status("Error", "Json parsing failed");
 			if(fields == null){
 				@SuppressWarnings("unchecked")
 				Set<String> requestedFields = jsonObj.keySet();
@@ -195,7 +194,7 @@ public class CouchdbClient extends DB{
 				result.add(this.getFieldsFromJsonObj(fields, jsonObj));
 			}
 		}
-		return OK;
+		return Status.OK;
 	}
 	
 	private ViewResult executeView(String startKey, int amountOfRecords){
@@ -228,11 +227,11 @@ public class CouchdbClient extends DB{
 	
 	// Table variable is not used => already contained in database connector
 	@Override
-	public int update(String table, String key,
-			HashMap<String, ByteIterator> values) {
+	public Status update(String table, String key,
+                       HashMap<String, ByteIterator> values) {
 		StringToStringMap queryResult = this.executeReadOperation(key);
 		if(queryResult == null)
-			return DOC_NOT_FOUND;
+			return Status.NOT_FOUND;
 		StringToStringMap updatedMap = this.updateFields(queryResult, values);
 		return this.executeUpdateOperation(updatedMap);
 	}
@@ -248,7 +247,7 @@ public class CouchdbClient extends DB{
 	
 	// Table variable is not used => already contained in database connector
 	@Override
-	public int insert(String table, String key,
+	public Status insert(String table, String key,
 			HashMap<String, ByteIterator> values) {
 		StringToStringMap dataToInsert = new StringToStringMap(values);
 		return this.executeWriteOperation(key, dataToInsert);
@@ -256,10 +255,10 @@ public class CouchdbClient extends DB{
 
 	// Table variable is not used => already contained in database connector
 	@Override
-	public int delete(String table, String key) {
+	public Status delete(String table, String key) {
 		StringToStringMap toDelete = this.executeReadOperation(key);
 		if(toDelete == null)
-			return DOC_NOT_FOUND;
+			return Status.NOT_FOUND;
 		return this.executeDeleteOperation(toDelete);
 	}
 	
